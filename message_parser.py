@@ -3,7 +3,7 @@ Message parsing utilities for extracting tool calls and handling text
 """
 import json
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 
 def extract_json_tool_call(json_obj: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -112,8 +112,32 @@ def extract_zoom_from_text(text: str) -> Optional[int]:
     return None
 
 
-def parse_llm_response(content: str, thinking_content: Optional[str] = None) -> Dict[str, Any]:
+def parse_llm_response(content: str, thinking_content: Optional[str] = None, tool_calls: Optional[List] = None) -> Dict[str, Any]:
     """Parse LLM response for tool calls or text responses"""
+    # If tool_calls are already provided from the LLM response, use those
+    if tool_calls:
+        # Check if there's also a text response in the content
+        try:
+            json_response = json.loads(content.strip())
+            if isinstance(json_response, dict) and "response" in json_response:
+                # Both tool_calls and text response - return mixed type
+                return {
+                    "type": "mixed_response",
+                    "tool_calls": tool_calls,
+                    "content": json_response["response"],
+                    "thinking_content": thinking_content
+                }
+        except json.JSONDecodeError:
+            pass
+        
+        # Only tool_calls, no text response
+        return {
+            "type": "tool_calls",
+            "tool_calls": tool_calls,
+            "content": content,
+            "thinking_content": thinking_content
+        }
+    
     try:
         # Try to parse as JSON first
         json_response = json.loads(content.strip())

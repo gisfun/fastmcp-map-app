@@ -40,6 +40,8 @@ class LLMClient:
             content = getattr(message, 'content', None)
             tool_calls = getattr(message, 'tool_calls', None)
             
+            print(f"LLM Response - content: {content}, thinking_content: {thinking_content}, tool_calls: {tool_calls}")
+            
             return {
                 "success": True,
                 "content": content,

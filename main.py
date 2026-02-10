@@ -177,7 +177,11 @@ async def get():
         const ws = new WebSocket('ws://localhost:8000/ws');
         
         ws.onmessage = function(event) {{
+            console.log('WebSocket message received:', event.data);
             const data = JSON.parse(event.data);
+            console.log('Parsed data:', data);
+            
+            displayMessage(data.content, data.type);
             
             // Display API response in collapsible panel
             if (data.api_response) {{
@@ -186,6 +190,7 @@ async def get():
             
             // Display tool call requests
             if (data.type === 'tool_call') {{
+                console.log('Tool call received:', data.tool, data.arguments);
                 const messagesDiv = document.getElementById('chatMessages');
                 const toolDiv = document.createElement('div');
                 toolDiv.style.marginBottom = '8px';
@@ -193,7 +198,7 @@ async def get():
                 toolDiv.style.background = '#fff3e0';
                 toolDiv.style.border = '1px solid #ff9800';
                 toolDiv.style.borderRadius = '4px';
-                toolDiv.innerHTML = `<strong>🔧 Tool Call:</strong> ${{data.tool}}<br><small>${{data.arguments}}</small>`;
+                toolDiv.innerHTML = `<strong>🔧 Tool Call:</strong> ${{data.tool}}<br><small>Arguments: ${{JSON.stringify(data.arguments)}}</small>`;
                 
                 messagesDiv.appendChild(toolDiv);
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -220,9 +225,11 @@ async def get():
             }}
             
             if (data.type === 'tool_result') {{
+                console.log('Tool result received:', data.tool, data.map_state);
                 // Update map state based on tool result
                 if (data.map_state) {{
                     const center = ol.proj.fromLonLat(data.map_state.center);
+                    console.log('Animating to center:', center, 'zoom:', data.map_state.zoom);
                     map.getView().animate({{
                         center: center,
                         zoom: data.map_state.zoom,
