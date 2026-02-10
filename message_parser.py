@@ -32,6 +32,14 @@ def extract_json_tool_call(json_obj: Dict[str, Any]) -> Optional[Dict[str, Any]]
                 "arguments": json.dumps(json_obj["zoom_to_level"])
             }
         }
+    elif "geocode_address" in json_obj:
+        return {
+            "type": "function",
+            "function": {
+                "name": "geocode_address",
+                "arguments": json.dumps(json_obj["geocode_address"])
+            }
+        }
     return None
 
 
@@ -52,8 +60,9 @@ def extract_tool_from_text(text: str) -> Optional[Dict[str, Any]]:
         "statue of liberty": {"lat": 40.6892, "lon": -74.0445}
     }
     
-    # Check for location mentions
+    # Check for location mentions - use geocoding for addresses and place names
     if any(word in text_lower for word in ["navigate", "go to", "show me", "take me"]):
+        # First check for known locations (fallback)
         for place, coords in locations.items():
             if place in text_lower:
                 return {
@@ -66,6 +75,27 @@ def extract_tool_from_text(text: str) -> Optional[Dict[str, Any]]:
                         })
                     }
                 }
+        
+        # If no known location found, try to extract address/place for geocoding
+        # Look for patterns that suggest addresses or place names
+        address_patterns = [
+            r'(?:navigate|go to|show me|take me)\s+(.+?)(?:\s+(?:please|now|thanks))?$',
+            r'(.+?)(?:\s+(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr))',
+        ]
+        
+        for pattern in address_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match and match.group(1).strip():
+                address = match.group(1).strip()
+                # Avoid matching generic navigation words
+                if len(address) > 3 and not any(word in address.lower() for word in ["navigate", "go to", "show me", "take me"]):
+                    return {
+                        "type": "function",
+                        "function": {
+                            "name": "geocode_address",
+                            "arguments": json.dumps({"address": address})
+                        }
+                    }
     
     # Try to find numeric coordinates
     if any(word in text_lower for word in ["navigate", "go to", "show me", "take me"]):

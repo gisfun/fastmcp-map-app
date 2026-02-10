@@ -97,6 +97,23 @@ class LLMClient:
                         "required": ["zoom_level"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "geocode_address",
+                    "description": "Convert a textual address or location name to latitude/longitude coordinates",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "address": {
+                                "type": "string",
+                                "description": "The address, location name, or place to geocode (e.g., '1600 Pennsylvania Ave, Washington DC', 'Eiffel Tower', 'Times Square')"
+                            }
+                        },
+                        "required": ["address"]
+                    }
+                }
             }
         ]
     
@@ -104,14 +121,15 @@ class LLMClient:
         """Get system prompt for LLM"""
         return """You are a helpful assistant that controls an interactive map.
 
-When users ask to navigate to locations, use navigate_to_location tool.
-When they ask to zoom, use zoom_to_level tool.
-For locations, use appropriate coordinates for the requested place.
+Available tools:
+- geocode_address: Convert addresses/place names to coordinates
+- navigate_to_location: Navigate the map to specific coordinates  
+- zoom_to_level: Zoom the map to a specific level
+
+Use tools as needed to fulfill user requests. The model should intelligently chain tools when appropriate.
 
 IMPORTANT: Always respond in JSON format. If you don't use tools, respond with:
 {"response": "your text response here"}
-
-If you use tools, let the tool execution handle the response.
 
 If your model supports reasoning/thinking content:
 - Put your thinking process in reasoning_content field

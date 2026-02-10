@@ -224,7 +224,34 @@ async def get():
             
             // Handle tool results
             if (data.type === 'tool_result') {{
-                console.log('Tool result received:', data.tool, data.map_state);
+                console.log('Tool result received:', data.tool, data.map_state, data.coordinates);
+                
+                // Handle geocoding results by automatically navigating to the coordinates
+                if (data.tool === 'geocode_address' && data.coordinates) {{
+                    const lat = data.coordinates.latitude;
+                    const lon = data.coordinates.longitude;
+                    const center = ol.proj.fromLonLat([lon, lat]);
+                    
+                    console.log('Navigating to geocoded coordinates:', center);
+                    map.getView().animate({{
+                        center: center,
+                        zoom: 15, // Set a reasonable zoom level for geocoded locations
+                        duration: 1500
+                    }});
+                    
+                    // Show success message
+                    const messagesDiv = document.getElementById('chatMessages');
+                    const successDiv = document.createElement('div');
+                    successDiv.style.marginTop = '5px';
+                    successDiv.style.padding = '8px';
+                    successDiv.style.background = '#e8f5e8';
+                    successDiv.style.border = '1px solid #4caf50';
+                    successDiv.style.borderRadius = '4px';
+                    successDiv.innerHTML = `<strong>📍 Navigated to:</strong> ${{data.coordinates.formatted_address || lat + ', ' + lon}}<br><small>Confidence: ${{data.coordinates.confidence}}%</small>`;
+                    messagesDiv.appendChild(successDiv);
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }}
+                
                 // Update map state based on tool result
                 if (data.map_state) {{
                     const center = ol.proj.fromLonLat(data.map_state.center);

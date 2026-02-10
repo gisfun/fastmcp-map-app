@@ -1,8 +1,9 @@
 """Map tools module for executing navigation and zoom operations
-"""
+ """
 import json
 import asyncio
 from typing import Any, Dict, Optional
+import aiohttp
 
 
 class MapTools:
@@ -31,6 +32,8 @@ class MapTools:
             return await self.navigate_to_location(arguments["latitude"], arguments["longitude"])
         elif function_name == "zoom_to_level":
             return await self.zoom_to_level(arguments["zoom_level"])
+        elif function_name == "geocode_address":
+            return await self.geocode_address(arguments["address"])
         else:
             return {
                 "type": "error",
@@ -70,3 +73,79 @@ class MapTools:
         
         print(f"zoom_to_level result: {response}")
         return response
+    
+    async def geocode_address(self, address: str) -> Dict[str, Any]:
+        """Convert a textual address to latitude/longitude coordinates using ArcGIS geocoding service."""
+        print(f"geocode_address called with address: {address}")
+        
+        # ArcGIS geocoding service URL
+        base_url = "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates"
+        params = {
+            "f": "json",
+            "maxLocations": "10",
+            "outFields": "*",
+            "SingleLine": address
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(base_url, params=params) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        
+                        # Check if we found any candidates
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            # Use the first (best) candidate
+                            best_candidate = candidates[0]
+                            location = best_candidate.get("location", {})
+                            x = location.get("x")  # longitude
+                            y = location.get("y")  # latitude
+                            score = best_candidate.get("score", 0)
+                            address_str = best_candidate.get("address", "")
+                            
+                            if x is not None and y is not None:
+                                # Automatically update map state to navigate to the geocoded location
+                                self.map_state["center"] = [x, y]  # OpenLayers uses [lon, lat]
+                                self.map_state["zoom"] = 15  # Set reasonable zoom for geocoded locations
+                                
+                                result = {
+                                    "type": "tool_result",
+                                    "tool": "geocode_address",
+                                    "result": f"Geocoded '{address}' and navigated to: {address_str or f'{y:.6f}, {x:.6f}'} (confidence: {score}%)",
+                                    "coordinates": {
+                                        "latitude": y,
+                                        "longitude": x,
+                                        "confidence": score,
+                                        "formatted_address": address_str
+                                    },
+                                    "candidates_count": len(candidates),
+                                    "map_state": self.map_state.copy()
+                                }
+                                print(f"geocode_address result: {result}")
+                                return result
+                            else:
+                                return {
+                                    "type": "error",
+                                    "content": f"Geocoding service returned invalid coordinates for address: {address}"
+                                }
+                        else:
+                            return {
+                                "type": "error", 
+                                "content": f"No location found for address: {address}"
+                            }
+                    else:
+                        return {
+                            "type": "error",
+                            "content": f"Geocoding service returned HTTP {response.status} for address: {address}"
+                        }
+        except aiohttp.ClientError as e:
+            return {
+                "type": "error",
+                "content": f"Network error when geocoding address '{address}': {str(e)}"
+            }
+        except Exception as e:
+            return {
+                "type": "error",
+                "content": f"Unexpected error when geocoding address '{address}': {str(e)}"
+            }

@@ -90,12 +90,24 @@ class WebSocketHandler:
         # Get tool definitions
         tools = self.llm_client.get_tool_definitions()
         
-        # Call LLM
-        llm_response = await self.llm_client.call_llm(messages, tools)
+        # Conversation loop for multi-tool interactions
+        max_iterations = 5  # Prevent infinite loops
+        iteration = 0
         
-        # Process LLM response
-        if llm_response.get("success"):
-            print(f"Processing LLM response - content: {llm_response.get('content')}, tool_calls: {llm_response.get('tool_calls')}")
+        while iteration < max_iterations:
+            # Call LLM
+            llm_response = await self.llm_client.call_llm(messages, tools)
+            
+            # Process LLM response
+            if not llm_response.get("success"):
+                print(f"LLM call failed: {llm_response.get('error')}")
+                await self.send_safe_message(websocket, {
+                    "type": "system-message",
+                    "content": f"LLM error: {llm_response.get('error', 'Unknown error')}"
+                })
+                break
+            
+            print(f"Iteration {iteration}: Processing LLM response - content: {llm_response.get('content')}, tool_calls: {llm_response.get('tool_calls')}")
             
             parsed_response = parse_llm_response(
                 llm_response.get("content", ""),
@@ -118,93 +130,11 @@ class WebSocketHandler:
                 "thinking_content": parsed_response.get("thinking_content")
             }
             
-            if parsed_response["type"] == "tool_calls":
-                # Send tool call request to client before execution
-                for tool_call in parsed_response["tool_calls"]:
-                    # Extract tool name and arguments
-                    if hasattr(tool_call, 'function'):
-                        tool_name = tool_call.function.name
-                        arguments = json.loads(tool_call.function.arguments)
-                    elif isinstance(tool_call, dict) and 'function' in tool_call:
-                        tool_name = tool_call['function']['name']
-                        arguments = json.loads(tool_call['function']['arguments'])
-                    else:
-                        continue
-                    
-                    print(f"Sending tool call to frontend: {tool_name} with args: {arguments}")
-                    
-                    await self.send_safe_message(websocket, {
-                        "type": "tool_call",
-                        "tool": tool_name,
-                        "arguments": arguments,
-                        "thinking_content": parsed_response.get("thinking_content"),
-                        "api_response": api_response_data
-                    })
-                    
-                    # Execute the tool
-                    tool_result = await self.map_tools.execute_tool_call(tool_call)
-                    
-                    print(f"Tool result received: {tool_result}")
-                    
-                    # Send tool result to client with tool name
-                    await self.send_safe_message(websocket, {
-                        "type": "tool_result",
-                        "tool": tool_result.get("tool"),
-                        "content": tool_result.get("result", "Tool executed"),
-                        "map_state": self.map_state.copy(),
-                        "api_response": api_response_data
-                    })
-            
-            elif parsed_response["type"] == "mixed_response":
-                # Execute tool calls and then send text response
-                for tool_call in parsed_response["tool_calls"]:
-                    # Extract tool name and arguments
-                    if hasattr(tool_call, 'function'):
-                        tool_name = tool_call.function.name
-                        arguments = json.loads(tool_call.function.arguments)
-                    elif isinstance(tool_call, dict) and 'function' in tool_call:
-                        tool_name = tool_call['function']['name']
-                        arguments = json.loads(tool_call['function']['arguments'])
-                    else:
-                        continue
-                    
-                    print(f"Sending tool call to frontend: {tool_name} with args: {arguments}")
-                    
-                    await self.send_safe_message(websocket, {
-                        "type": "tool_call",
-                        "tool": tool_name,
-                        "arguments": arguments,
-                        "thinking_content": parsed_response.get("thinking_content"),
-                        "api_response": api_response_data
-                    })
-                    
-                    # Execute the tool
-                    tool_result = await self.map_tools.execute_tool_call(tool_call)
-                    
-                    print(f"Tool result received: {tool_result}")
-                    
-                    # Send tool result to client with tool name
-                    await self.send_safe_message(websocket, {
-                        "type": "tool_result",
-                        "tool": tool_result.get("tool"),
-                        "content": tool_result.get("result", "Tool executed"),
-                        "map_state": self.map_state.copy(),
-                        "api_response": api_response_data
-                    })
-                
-                # Send text response after tool execution
-                if parsed_response.get("content"):
-                    await self.send_safe_message(websocket, {
-                        "type": "llm_response",
-                        "content": parsed_response["content"],
-                        "thinking_content": parsed_response.get("thinking_content"),
-                        "api_response": api_response_data
-                    })
-            else:
-                # Send text response
-                response_content = parsed_response["content"]
+            # If no tool calls, we're done
+            if not parsed_response.get("tool_calls") and not llm_response.get("tool_calls"):
+                # Send final text response
+                response_content = parsed_response.get("content", "") or llm_response.get("content", "")
                 if parsed_response.get("json_response"):
-                    # Include the original JSON for display
                     response_content = f"{response_content}\n\nJSON: {json.dumps(parsed_response['json_response'], indent=2)}"
                 
                 await self.send_safe_message(websocket, {
@@ -213,6 +143,76 @@ class WebSocketHandler:
                     "thinking_content": parsed_response.get("thinking_content"),
                     "api_response": api_response_data
                 })
+                break
+            
+            # Execute tool calls
+            tool_results = []
+            tool_calls_to_execute = parsed_response.get("tool_calls") or []
+            
+            for tool_call in tool_calls_to_execute:
+                print(f"Executing tool call: {tool_call}")
+                
+                # Extract tool name and arguments
+                if hasattr(tool_call, 'function'):
+                    tool_name = tool_call.function.name
+                    arguments = json.loads(tool_call.function.arguments)
+                elif isinstance(tool_call, dict) and 'function' in tool_call:
+                    tool_name = tool_call['function']['name']
+                    arguments = json.loads(tool_call['function']['arguments'])
+                else:
+                    continue
+                
+                print(f"Sending tool call to frontend: {tool_name} with args: {arguments}")
+                
+                await self.send_safe_message(websocket, {
+                    "type": "tool_call",
+                    "tool": tool_name,
+                    "arguments": arguments,
+                    "thinking_content": parsed_response.get("thinking_content"),
+                    "api_response": api_response_data
+                })
+                
+                # Execute the tool
+                tool_result = await self.map_tools.execute_tool_call(tool_call)
+                tool_results.append(tool_result)
+                
+                print(f"Tool result received: {tool_result}")
+                
+                # Send tool result to client
+                result_data = {
+                    "type": "tool_result",
+                    "tool": tool_result.get("tool"),
+                    "content": tool_result.get("result", "Tool executed"),
+                    "map_state": self.map_state.copy(),
+                    "api_response": api_response_data
+                }
+                
+                # Include coordinates if this was a geocoding result
+                if tool_result.get("tool") == "geocode_address" and "coordinates" in tool_result:
+                    result_data["coordinates"] = tool_result["coordinates"]
+                
+                await self.send_safe_message(websocket, result_data)
+            
+            # Add tool results to conversation for next iteration
+            if tool_results:
+                tool_result_messages = []
+                for i, result in enumerate(tool_results):
+                    tool_result_messages.append({
+                        "role": "tool",
+                        "content": json.dumps(result),
+                        "tool_call_id": str(i)  # Simple ID for now
+                    })
+                
+                messages.extend(tool_result_messages)
+                iteration += 1
+            else:
+                break
+        
+        if iteration >= max_iterations:
+            await self.send_safe_message(websocket, {
+                "type": "system-message",
+                "content": "Maximum tool iterations reached. Please try again."
+            })
     
     async def send_safe_message(self, websocket: WebSocket, data: Dict[str, Any]):
         """Send message with proper JSON serialization error handling"""
