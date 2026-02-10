@@ -1,0 +1,23 @@
+{
+  "llm": {
+    "provider": "llamacpp",
+    "base_url": "http://localhost:31434/v1",
+    "model": "glm-4.7-flash",
+    "api_key": "notneeded",
+    "temperature": 0.7,
+    "max_tokens": 1000,
+    "timeout": 30
+  },
+  "app": {
+    "name": "FastMCP Map App",
+    "debug": false,
+    "host": "0.0.0.0",
+    "port": 8000
+  },
+  "map": {
+    "default_center": [0, 0],
+    "default_zoom": 2,
+    "min_zoom": 0,
+    "max_zoom": 20
+  }
+}
