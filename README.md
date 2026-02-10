@@ -42,6 +42,13 @@ ollama serve
 ```
 
 4. Run the application:
+
+For development (recommended):
+```bash
+uv run fastapi dev main.py
+```
+
+For production:
 ```bash
 uv run python main.py
 ```
