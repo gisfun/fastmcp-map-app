@@ -181,11 +181,14 @@ async def get():
             const data = JSON.parse(event.data);
             console.log('Parsed data:', data);
             
-            displayMessage(data.content, data.type);
-            
             // Display API response in collapsible panel
             if (data.api_response) {{
                 displayApiResponse(data.api_response);
+            }}
+            
+            // Display thinking content if available (show before other content)
+            if (data.thinking_content) {{
+                displayThinkingContent(data.thinking_content);
             }}
             
             // Display tool call requests
@@ -204,7 +207,7 @@ async def get():
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }}
             
-            // Format LLM responses for better readability
+            // Display LLM responses (only once, in formatted version)
             if (data.type === 'llm_response' && data.content) {{
                 const formattedDiv = document.createElement('div');
                 formattedDiv.style.marginTop = '5px';
@@ -219,11 +222,7 @@ async def get():
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }}
             
-            // Display thinking content if available
-            if (data.thinking_content) {{
-                displayThinkingContent(data.thinking_content);
-            }}
-            
+            // Handle tool results
             if (data.type === 'tool_result') {{
                 console.log('Tool result received:', data.tool, data.map_state);
                 // Update map state based on tool result

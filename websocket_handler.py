@@ -137,6 +137,7 @@ class WebSocketHandler:
                         "type": "tool_call",
                         "tool": tool_name,
                         "arguments": arguments,
+                        "thinking_content": parsed_response.get("thinking_content"),
                         "api_response": api_response_data
                     })
                     
@@ -173,6 +174,7 @@ class WebSocketHandler:
                         "type": "tool_call",
                         "tool": tool_name,
                         "arguments": arguments,
+                        "thinking_content": parsed_response.get("thinking_content"),
                         "api_response": api_response_data
                     })
                     
