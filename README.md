@@ -121,6 +121,14 @@ During development, we observed differences in model reliability:
 - **State Management**: Centralized map state with proper synchronization
 - **Error Recovery**: Comprehensive error handling throughout the tool pipeline
 
+### OpenCode commands
+
+`opencode-cli session list`
+
+`opencode-cli export ses_3ba9c22ecffeisrVjRX2j4hQ5A > .opencode\sessions\session2.json`
+
+`opencode-cli export ses_3b91b3424ffe3mWL39wAKkRlHb > .opencode\sessions\session3.json`
+
 ## Possible Next Steps
 
 1. **Testing Implementation**:
