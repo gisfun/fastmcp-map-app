@@ -178,11 +178,25 @@ async def get():
         
         ws.onmessage = function(event) {{
             const data = JSON.parse(event.data);
-            displayMessage(data.content, data.type);
             
             // Display API response in collapsible panel
             if (data.api_response) {{
                 displayApiResponse(data.api_response);
+            }}
+            
+            // Display tool call requests
+            if (data.type === 'tool_call') {{
+                const messagesDiv = document.getElementById('chatMessages');
+                const toolDiv = document.createElement('div');
+                toolDiv.style.marginBottom = '8px';
+                toolDiv.style.padding = '10px';
+                toolDiv.style.background = '#fff3e0';
+                toolDiv.style.border = '1px solid #ff9800';
+                toolDiv.style.borderRadius = '4px';
+                toolDiv.innerHTML = `<strong>🔧 Tool Call:</strong> ${{data.tool}}<br><small>${{data.arguments}}</small>`;
+                
+                messagesDiv.appendChild(toolDiv);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }}
             
             // Format LLM responses for better readability
@@ -198,6 +212,11 @@ async def get():
                 const messagesDiv = document.getElementById('chatMessages');
                 messagesDiv.appendChild(formattedDiv);
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }}
+            
+            // Display thinking content if available
+            if (data.thinking_content) {{
+                displayThinkingContent(data.thinking_content);
             }}
             
             if (data.type === 'tool_result') {{
@@ -275,6 +294,23 @@ async def get():
                 }}));
                 input.value = '';
             }}
+        }}
+
+        function displayThinkingContent(thinkingContent) {{
+            if (!thinkingContent) return;
+            
+            const messagesDiv = document.getElementById('chatMessages');
+            const thinkingDiv = document.createElement('div');
+            thinkingDiv.style.marginBottom = '8px';
+            thinkingDiv.style.padding = '10px';
+            thinkingDiv.style.background = '#fff9c4';
+            thinkingDiv.style.border = '1px solid #fbc02d';
+            thinkingDiv.style.borderRadius = '4px';
+            thinkingDiv.style.fontStyle = 'italic';
+            thinkingDiv.innerHTML = '<strong>🤔 Thinking:</strong><br>' + thinkingContent.replace(/\\\\n/g, '<br>');
+            
+            messagesDiv.appendChild(thinkingDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }}
 
         // Handle Enter key in input

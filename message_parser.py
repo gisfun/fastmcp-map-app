@@ -112,7 +112,7 @@ def extract_zoom_from_text(text: str) -> Optional[int]:
     return None
 
 
-def parse_llm_response(content: str) -> Dict[str, Any]:
+def parse_llm_response(content: str, thinking_content: Optional[str] = None) -> Dict[str, Any]:
     """Parse LLM response for tool calls or text responses"""
     try:
         # Try to parse as JSON first
@@ -123,6 +123,7 @@ def parse_llm_response(content: str) -> Dict[str, Any]:
                 return {
                     "type": "text_response",
                     "content": json_response["response"],
+                    "thinking_content": thinking_content,
                     "tool_calls": None,
                     "json_response": json_response
                 }
@@ -132,7 +133,8 @@ def parse_llm_response(content: str) -> Dict[str, Any]:
                 return {
                     "type": "tool_calls",
                     "tool_calls": [extracted_tool],
-                    "content": None
+                    "content": None,
+                    "thinking_content": thinking_content
                 }
     except json.JSONDecodeError:
         pass
@@ -143,12 +145,14 @@ def parse_llm_response(content: str) -> Dict[str, Any]:
         return {
             "type": "tool_calls",
             "tool_calls": [extracted_tool],
-            "content": None
+            "content": None,
+            "thinking_content": thinking_content
         }
     
     # Default to text response
     return {
         "type": "text_response",
         "content": content,
+        "thinking_content": thinking_content,
         "tool_calls": None
     }

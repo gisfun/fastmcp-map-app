@@ -78,16 +78,38 @@ class WebSocketHandler:
         
         # Process LLM response
         if llm_response.get("success"):
-            parsed_response = parse_llm_response(llm_response.get("content", ""))
+            parsed_response = parse_llm_response(
+                llm_response.get("content", ""),
+                llm_response.get("thinking_content")
+            )
             
             if parsed_response["type"] == "tool_calls":
-                # Execute tool calls
+                # Send tool call request to client before execution
                 for tool_call in parsed_response["tool_calls"]:
+                    # Extract tool name and arguments
+                    if hasattr(tool_call, 'function'):
+                        tool_name = tool_call.function.name
+                        arguments = json.loads(tool_call.function.arguments)
+                    elif isinstance(tool_call, dict) and 'function' in tool_call:
+                        tool_name = tool_call['function']['name']
+                        arguments = json.loads(tool_call['function']['arguments'])
+                    else:
+                        continue
+                    
+                    await self.send_safe_message(websocket, {
+                        "type": "tool_call",
+                        "tool": tool_name,
+                        "arguments": arguments,
+                        "api_response": api_response_data
+                    })
+                    
+                    # Execute the tool
                     tool_result = await self.map_tools.execute_tool_call(tool_call)
                     
-                    # Send tool result to client
+                    # Send tool result to client with tool name
                     await self.send_safe_message(websocket, {
                         "type": "tool_result",
+                        "tool": tool_result.get("tool"),
                         "content": tool_result.get("result", "Tool executed"),
                         "map_state": self.map_state.copy(),
                         "api_response": api_response_data
@@ -97,11 +119,12 @@ class WebSocketHandler:
                 response_content = parsed_response["content"]
                 if parsed_response.get("json_response"):
                     # Include the original JSON for display
-                    response_content = f"Response: {response_content}\n\nJSON: {json.dumps(parsed_response['json_response'], indent=2)}"
+                    response_content = f"{response_content}\n\nJSON: {json.dumps(parsed_response['json_response'], indent=2)}"
                 
                 await self.send_safe_message(websocket, {
                     "type": "llm_response",
                     "content": response_content,
+                    "thinking_content": parsed_response.get("thinking_content"),
                     "api_response": api_response_data
                 })
         else:

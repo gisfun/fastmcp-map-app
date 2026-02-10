@@ -31,12 +31,19 @@ class LLMClient:
                 params["tool_choice"] = "auto"
             
             response = await self.client.chat.completions.create(**params)
-            content = response.choices[0].message.content
-            tool_calls = getattr(response.choices[0].message, 'tool_calls', None)
+            message = response.choices[0].message
+            
+            # Extract content fields
+            # reasoning_content is the thinking process (if available)
+            # content is the actual response text
+            thinking_content = getattr(message, 'reasoning_content', None)
+            content = getattr(message, 'content', None)
+            tool_calls = getattr(message, 'tool_calls', None)
             
             return {
                 "success": True,
                 "content": content,
+                "thinking_content": thinking_content,
                 "tool_calls": tool_calls
             }
             
@@ -93,7 +100,7 @@ class LLMClient:
     
     def get_system_prompt(self) -> str:
         """Get system prompt for LLM"""
-        return """You are a helpful assistant that controls an interactive map. 
+        return """You are a helpful assistant that controls an interactive map.
 
 When users ask to navigate to locations, use navigate_to_location tool.
 When they ask to zoom, use zoom_to_level tool.
@@ -102,4 +109,9 @@ For locations, use appropriate coordinates for the requested place.
 IMPORTANT: Always respond in JSON format. If you don't use tools, respond with:
 {"response": "your text response here"}
 
-If you use tools, let the tool execution handle the response."""
+If you use tools, let the tool execution handle the response.
+
+If your model supports reasoning/thinking content:
+- Put your thinking process in reasoning_content field
+- Put your final response in the content field
+- This helps users understand how you reached your conclusion."""
