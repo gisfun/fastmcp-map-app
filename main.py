@@ -380,11 +380,11 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     # Display LLM connection info
     llm_config = config["llm"]
-    print(f"🚀 FastMCP Map App starting...")
-    print(f"📍 LLM Provider: {llm_config['provider']}")
-    print(f"🔗 Endpoint: {llm_config['base_url']}")
-    print(f"🤖 Model: {llm_config['model']}")
-    print(f"🌐 Map Interface: http://localhost:8000")
+    print(f"FastMCP Map App starting...")
+    print(f"LLM Provider: {llm_config['provider']}")
+    print(f"Endpoint: {llm_config['base_url']}")
+    print(f"Model: {llm_config['model']}")
+    print(f"Map Interface: http://localhost:8000")
     print("=" * 50)
     
     uvicorn.run(

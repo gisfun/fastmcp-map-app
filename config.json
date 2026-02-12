@@ -1,9 +1,9 @@
 {
   "llm": {
-    "provider": "llamacpp",
-    "base_url": "http://localhost:31434/v1",
-    "model": "glm-4.7-flash",
-    "api_key": "notneeded",
+    "provider": "openai",
+    "base_url": "https://opencode.ai/zen/v1",
+    "model": "big-pickle",
+    "api_key": "public",
     "temperature": 0.7,
     "max_tokens": 1000,
     "timeout": 30
